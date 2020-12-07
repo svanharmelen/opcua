@@ -138,6 +138,8 @@ pub struct Session {
     message_queue: Arc<RwLock<MessageQueue>>,
     /// Session retry policy.
     session_retry_policy: SessionRetryPolicy,
+    /// Use a single-threaded executor.
+    single_threaded_executor: bool,
 }
 
 impl Drop for Session {
@@ -166,6 +168,7 @@ impl Session {
         certificate_store: Arc<RwLock<CertificateStore>>,
         session_info: SessionInfo,
         session_retry_policy: SessionRetryPolicy,
+        single_threaded_executor: bool,
     ) -> Session {
         // TODO take these from the client config
         let decoding_limits = DecodingLimits::default();
@@ -184,11 +187,13 @@ impl Session {
             secure_channel.clone(),
             session_state.clone(),
             message_queue.clone(),
+            single_threaded_executor,
         );
         let subscription_state = Arc::new(RwLock::new(SubscriptionState::new()));
         let timer_command_queue = SubscriptionTimer::make_timer_command_queue(
             session_state.clone(),
             subscription_state.clone(),
+            single_threaded_executor,
         );
         Session {
             application_description,
@@ -201,6 +206,7 @@ impl Session {
             secure_channel,
             message_queue,
             session_retry_policy,
+            single_threaded_executor,
         }
     }
 
@@ -1097,8 +1103,13 @@ impl Session {
                 error!("Session activity timer task error = {:?}", err);
             });
 
+        let single_threaded_executor = self.single_threaded_executor;
         let _ = thread::spawn(move || {
-            tokio::run(task);
+            if !single_threaded_executor {
+                tokio::runtime::run(task);
+            } else {
+                tokio::runtime::current_thread::run(task);
+            }
         });
     }
 
