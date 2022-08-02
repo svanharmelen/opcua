@@ -789,11 +789,12 @@ impl BinaryEncoder<Variant> for Variant {
         // Read the value(s). If array length was specified, we assume a single or multi dimension array
         if array_length > 0 {
             // Array length in total cannot exceed max array length
-            if array_length > decoding_options.max_array_length as i32 {
+            let array_length = array_length as usize;
+            if array_length > decoding_options.max_array_length {
                 return Err(StatusCode::BadEncodingLimitsExceeded);
             }
 
-            let mut values: Vec<Variant> = Vec::with_capacity(array_length as usize);
+            let mut values: Vec<Variant> = Vec::with_capacity(array_length);
             for _ in 0..array_length {
                 values.push(Variant::decode_variant_value(
                     stream,
@@ -1011,8 +1012,11 @@ impl Variant {
         } else if Self::test_encoding_flag(encoding_mask, EncodingMask::LOCALIZED_TEXT) {
             Self::from(LocalizedText::decode(stream, decoding_options)?)
         } else if Self::test_encoding_flag(encoding_mask, EncodingMask::EXTENSION_OBJECT) {
+            // Extension object internally does depth checking to prevent deep recursion
             Self::from(ExtensionObject::decode(stream, decoding_options)?)
         } else if Self::test_encoding_flag(encoding_mask, EncodingMask::VARIANT) {
+            // Nested variant is depth checked to prevent deep recursion
+            let _depth_lock = decoding_options.depth_lock()?;
             Variant::Variant(Box::new(Variant::decode(stream, decoding_options)?))
         } else if Self::test_encoding_flag(encoding_mask, EncodingMask::DATA_VALUE) {
             Self::from(DataValue::decode(stream, decoding_options)?)
