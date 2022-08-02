@@ -268,8 +268,10 @@ impl TcpTransport {
             panic!("Should not try to connect when already connected");
         }
 
-        let (host, port) =
-            hostname_port_from_url(endpoint_url, constants::DEFAULT_OPC_UA_SERVER_PORT)?;
+        let (host, port) = hostname_port_from_url(
+            endpoint_url,
+            crate::core::constants::DEFAULT_OPC_UA_SERVER_PORT,
+        )?;
 
         // Resolve the host name into a socket address
         let addr = {
@@ -528,7 +530,6 @@ impl TcpTransport {
     fn spawn_reading_task(
         reader: ReadHalf<TcpStream>,
         writer_tx: UnboundedSender<message_queue::Message>,
-        finished_flag: Arc<RwLock<bool>>,
         _receive_buffer_size: usize,
         mut read_state: ReadState,
         id: u32,
@@ -539,8 +540,7 @@ impl TcpTransport {
             secure_channel.decoding_options()
         };
 
-        let mut framed_read =
-            FramedRead::new(reader, TcpCodec::new(finished_flag, decoding_options));
+        let mut framed_read = FramedRead::new(reader, TcpCodec::new(decoding_options));
 
         tokio::spawn(async move {
             let id = format!("read-task, {}", id);
@@ -748,14 +748,7 @@ impl TcpTransport {
                 message_queue: message_queue.clone(),
                 chunks: HashMap::new(),
             };
-            Self::spawn_reading_task(
-                reader,
-                sender,
-                finished_flag,
-                receive_buffer_size,
-                read_connection,
-                id,
-            );
+            Self::spawn_reading_task(reader, sender, receive_buffer_size, read_connection, id);
         }
 
         // Spawn the writing task loop

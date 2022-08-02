@@ -7,6 +7,7 @@
 use std::{path::PathBuf, str::FromStr, sync::Arc};
 
 use chrono::Duration;
+use parking_lot::Mutex;
 
 use super::{
     config::{ClientConfig, ClientEndpoint, ANONYMOUS_USER_TOKEN_ID},
@@ -430,6 +431,10 @@ impl Client {
             max_string_length: decoding_options.max_string_length,
             max_byte_string_length: decoding_options.max_byte_string_length,
             max_array_length: decoding_options.max_array_length,
+            max_message_size: decoding_options.max_message_size,
+            decoding_depth_gauge: Arc::new(Mutex::new(
+                decoding_options.decoding_depth_gauge.clone(),
+            )),
             client_offset: Duration::zero(),
         }
     }

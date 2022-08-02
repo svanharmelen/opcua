@@ -13,7 +13,8 @@ use std::{
 
 use crate::core::config::Config;
 use crate::crypto::SecurityPolicy;
-use crate::types::{ApplicationType, MessageSecurityMode, UAString};
+use crate::prelude::constants;
+use crate::types::{ApplicationType, DepthGauge, MessageSecurityMode, UAString};
 
 use super::session_retry_policy::SessionRetryPolicy;
 
@@ -143,6 +144,10 @@ pub struct DecodingOptions {
     pub max_byte_string_length: usize,
     /// Maximum number of array elements. 0 actually means 0, i.e. no array permitted
     pub max_array_length: usize,
+    /// Maximum size of a message in bytes. 0 means no limit.
+    pub max_message_size: usize,
+    /// Decoding depth gauge is used to check for recursion
+    pub decoding_depth_gauge: DepthGauge,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
@@ -331,6 +336,8 @@ impl ClientConfig {
                 max_string_length: decoding_options.max_string_length,
                 max_byte_string_length: decoding_options.max_byte_string_length,
                 max_chunk_count: decoding_options.max_chunk_count,
+                max_message_size: constants::MAX_MESSAGE_SIZE,
+                decoding_depth_gauge: DepthGauge::default(),
             },
             performance: Performance {
                 ignore_clock_skew: false,
