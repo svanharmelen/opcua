@@ -249,12 +249,6 @@ impl ClientBuilder {
         self
     }
 
-    /// Maximum number of pending publish requests.
-    pub fn max_inflight_publish(mut self, max_inflight_publish: usize) -> Self {
-        self.config.max_inflight_publish = max_inflight_publish;
-        self
-    }
-
     /// Sets the session timeout period, in milliseconds.
     pub fn session_timeout(mut self, session_timeout: u32) -> Self {
         self.config.session_timeout = session_timeout;

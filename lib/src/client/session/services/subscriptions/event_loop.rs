@@ -30,7 +30,6 @@ pub enum SubscriptionActivity {
 /// and subscription keep-alive.
 pub struct SubscriptionEventLoop {
     session: Arc<Session>,
-    max_inflight_publish: usize,
     last_external_trigger: Instant,
     trigger_publish_rx: watch::Receiver<Instant>,
     // This is true if the client has received a message BadTooManyPublishRequests
@@ -50,7 +49,6 @@ impl SubscriptionEventLoop {
     pub fn new(session: Arc<Session>, trigger_publish_rx: watch::Receiver<Instant>) -> Self {
         let last_external_trigger = *trigger_publish_rx.borrow();
         Self {
-            max_inflight_publish: session.max_inflight_publish,
             session,
             last_external_trigger,
             trigger_publish_rx,
@@ -101,9 +99,11 @@ impl SubscriptionEventLoop {
                         }
                         _ = next_tick_fut => {
                             // Avoid publishing if there are too many inflight publish requests.
-                            if futures.len() < slf.max_inflight_publish {
+                            if !slf.is_waiting_for_response {
                                 debug!("Sending publish due to internal tick");
                                 futures.push(slf.static_publish());
+                            } else {
+                                debug!("Skipping publish due to inflight requests");
                             }
                             next = slf.session.next_publish_time(true);
                         }
@@ -125,9 +125,11 @@ impl SubscriptionEventLoop {
                                 Some(Err(e)) => {
                                     match e {
                                         StatusCode::BadTimeout => {
-                                            session_debug!(slf.session, "Publish request timed out, sending another");
-                                            if futures.len() < slf.max_inflight_publish {
+                                            if !slf.is_waiting_for_response {
+                                                session_debug!(slf.session, "Publish request timed out, sending another");
                                                 futures.push(slf.static_publish());
+                                            } else {
+                                                debug!("Skipping publish due to inflight requests");
                                             }
                                         }
                                         StatusCode::BadTooManyPublishRequests => {
