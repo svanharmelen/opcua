@@ -32,6 +32,9 @@ pub(crate) struct ModifyMonitoredItem {
     pub queue_size: u32,
 }
 
+type InnerDataValueCallback = Box<dyn FnMut(DataValue, &MonitoredItem) + Send + Sync>;
+type InnerEventCallback = Box<dyn FnMut(Option<Vec<Variant>>, &MonitoredItem) + Send + Sync>;
+
 /// A set of callbacks for notifications on a subscription.
 /// You may implement this on your own struct, or simply use [SubscriptionCallbacks]
 /// for a simple collection of closures.
@@ -49,8 +52,8 @@ pub trait OnSubscriptionNotification: Send + Sync {
 /// A convenient wrapper around a set of callback functions that implements [OnSubscriptionNotification]
 pub struct SubscriptionCallbacks {
     status_change: Box<dyn FnMut(StatusChangeNotification) + Send + Sync>,
-    data_value: Box<dyn FnMut(DataValue, &MonitoredItem) + Send + Sync>,
-    event: Box<dyn FnMut(Option<Vec<Variant>>, &MonitoredItem) + Send + Sync>,
+    data_value: InnerDataValueCallback,
+    event: InnerEventCallback,
 }
 
 impl SubscriptionCallbacks {
@@ -79,21 +82,21 @@ impl SubscriptionCallbacks {
 
 impl OnSubscriptionNotification for SubscriptionCallbacks {
     fn on_subscription_status_change(&mut self, notification: StatusChangeNotification) {
-        (&mut self.status_change)(notification);
+        (self.status_change)(notification);
     }
 
     fn on_data_value(&mut self, notification: DataValue, item: &MonitoredItem) {
-        (&mut self.data_value)(notification, item);
+        (self.data_value)(notification, item);
     }
 
     fn on_event(&mut self, event_fields: Option<Vec<Variant>>, item: &MonitoredItem) {
-        (&mut self.event)(event_fields, item);
+        (self.event)(event_fields, item);
     }
 }
 
 /// A wrapper around a data change callback that implements [OnSubscriptionNotification]
 pub struct DataChangeCallback {
-    data_value: Box<dyn FnMut(DataValue, &MonitoredItem) + Send + Sync>,
+    data_value: InnerDataValueCallback,
 }
 
 impl DataChangeCallback {
@@ -112,13 +115,13 @@ impl DataChangeCallback {
 
 impl OnSubscriptionNotification for DataChangeCallback {
     fn on_data_value(&mut self, notification: DataValue, item: &MonitoredItem) {
-        (&mut self.data_value)(notification, item);
+        (self.data_value)(notification, item);
     }
 }
 
 /// A wrapper around an event callback that implements [OnSubscriptionNotification]
 pub struct EventCallback {
-    event: Box<dyn FnMut(Option<Vec<Variant>>, &MonitoredItem) + Send + Sync>,
+    event: InnerEventCallback,
 }
 
 impl EventCallback {
@@ -139,7 +142,7 @@ impl EventCallback {
 
 impl OnSubscriptionNotification for EventCallback {
     fn on_event(&mut self, event_fields: Option<Vec<Variant>>, item: &MonitoredItem) {
-        (&mut self.event)(event_fields, item);
+        (self.event)(event_fields, item);
     }
 }
 
