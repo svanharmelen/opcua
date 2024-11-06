@@ -3,7 +3,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-use tokio::sync::mpsc::error::SendTimeoutError;
+use arc_swap::ArcSwap;
+use tokio::sync::mpsc::{self, error::SendTimeoutError};
 
 use crate::{
     client::{session::process_unexpected_response, transport::OutgoingMessage},
@@ -18,9 +19,8 @@ use crate::{
         RequestHeader, SecurityTokenRequestType, StatusCode,
     },
 };
-use arc_swap::ArcSwap;
 
-pub(crate) type RequestSend = tokio::sync::mpsc::Sender<OutgoingMessage>;
+pub(crate) type RequestSend = mpsc::Sender<OutgoingMessage>;
 
 lazy_static! {
     static ref NEXT_SESSION_ID: AtomicU32 = AtomicU32::new(1);
